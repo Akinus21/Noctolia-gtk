@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      attestations: write
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
@@ -39,14 +41,45 @@ jobs:
           RUSTFLAGS="-A dead_code" cargo build --release 2>&1 | tee build.log
         shell: bash
 
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | sed 's/.*"\(.*\)"/\1/')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          COMMIT_SHA=${GITHUB_SHA:0:8}
+          echo "TAG_NAME=v${VERSION}-${TIMESTAMP}-${COMMIT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Extract changelog for release
+        id: changelog
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          COMMIT_MSG=$(git log -1 --oneline --format='%s')
+          BODY="Noctolia-gtk v${VERSION}<br><br>Commit: ${COMMIT_MSG}<br>SHA: ${{ github.sha }}"
+          echo "BODY<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Upload artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: noctolia-gtk-build
+          name: noctolia-gtk-${{ steps.version.outputs.VERSION }}-linux-x86_64
           path: target/release/noctolia-gtk
-          if-no-files-found: ignore
           retention-days: 30
+
+      - name: Publish release
+        if: success() && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.TAG_NAME }}
+          name: Noctolia-gtk v${{ steps.version.outputs.VERSION }} (${{ github.sha }})
+          prerelease: false
+          body: ${{ steps.changelog.outputs.BODY }}
+          files: target/release/noctolia-gtk
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Notify webhook on failure
         if: failure() && github.ref == 'refs/heads/main'
