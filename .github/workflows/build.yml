@@ -36,7 +36,7 @@ jobs:
         id: build
         run: |
           set -o pipefail
-          cargo build --release 2>&1 | tee build.log
+          RUSTFLAGS="-A dead_code" cargo build --release 2>&1 | tee build.log
         shell: bash
 
       - name: Upload artifact
@@ -44,38 +44,28 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: noctolia-gtk-build
-          path: |
-            target/release/
-            dist/
-            build/
+          path: target/release/noctolia-gtk
           if-no-files-found: ignore
           retention-days: 30
 
-      - name: Notify webhook on build completion
-        if: always() && github.ref == 'refs/heads/main'
+      - name: Notify webhook on failure
+        if: failure() && github.ref == 'refs/heads/main'
         run: |
-          if [ "${{ job.status }}" = "success" ]; then
-            BUILD_STATUS="success"
-            ERRORS=""
-          elif [ "${{ job.status }}" = "failure" ]; then
-            BUILD_STATUS="failure"
-            ERRORS=$(cat build.log 2>/dev/null | tail -150 || echo "Build failed")
-          else
-            BUILD_STATUS="failure"
-            ERRORS="Unknown job status"
-          fi
+          ERRORS=$(cat build.log | tail -150)
           PAYLOAD=$(jq -n \
-            --arg status "$BUILD_STATUS" \
             --arg errors "$ERRORS" \
             --arg run_url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             --arg sha "${{ github.sha }}" \
-            '{status: $status, errors: $errors, run_url: $run_url, sha: $sha}')
+            '{errors: $errors, run_url: $run_url, sha: $sha}')
+
           SIG=$(echo -n "$PAYLOAD" | \
             openssl dgst -sha256 -hmac "${{ secrets.WEBHOOK_SECRET }}" | \
             awk '{print "sha256="$2}')
-          curl -fsSL -X POST \
+
+          curl -fsSL \
+            -X POST \
             -H "Content-Type: application/json" \
-            -H "X-GitHub-Event: build_complete" \
+            -H "X-GitHub-Event: build_failure" \
             -H "X-Hub-Signature-256: $SIG" \
             -d "$PAYLOAD" \
             "${{ secrets.WEBHOOK_URL }}" || true
