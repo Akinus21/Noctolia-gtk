@@ -47,7 +47,8 @@ jobs:
 
       - name: Verify binary
         run: |
-          SIZE=$(stat -c%s target/release/noctolia-gtk)
+          ls -la target/release/
+          SIZE=$(stat -c%s target/release/noctolia_gtk 2>/dev/null || stat -c%s target/release/noctolia-gtk 2>/dev/null)
           echo "Binary size: $SIZE bytes"
           if [ "$SIZE" -lt 10000 ]; then
             echo "ERROR: Binary too small ($SIZE bytes), likely a cache or build issue"
@@ -59,7 +60,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: noctolia-gtk-build
-          path: target/release/noctolia-gtk
+          path: target/release/noctolia_gtk
           if-no-files-found: error
           retention-days: 30
 
@@ -141,7 +142,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           NEW_TAG="${{ steps.tag.outputs.new_tag }}"
-          BINARY="target/release/noctolia-gtk"
+          BINARY="target/release/noctolia_gtk"
 
           if [ ! -s "$BINARY" ]; then
             echo "ERROR: Binary missing or empty at $BINARY"
