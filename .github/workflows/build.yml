@@ -67,7 +67,7 @@ jobs:
       - name: Notify webhook on failure
         if: failure() && github.ref == 'refs/heads/main'
         env:
-          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_HMAC_SECRET }}
         run: |
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           SHA="${{ github.sha }}"
@@ -97,7 +97,7 @@ jobs:
       - name: Notify webhook on success
         if: success() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
-          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_HMAC_SECRET }}
         run: |
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           SHA="${{ github.sha }}"
@@ -126,7 +126,7 @@ jobs:
         if: success() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         id: tag
         run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.00.0")
           echo "Previous tag: $PREV_TAG"
           VERSION=$(echo "$PREV_TAG" | sed 's/^v//')
           MAJOR=$(echo "$VERSION" | cut -d. -f1)
@@ -161,7 +161,7 @@ jobs:
           gh release create "$NEW_TAG" \
             --title "$NEW_TAG" \
             --notes "" \
-            "$BINARY#noctolia-gtk"
+            "$BINARY#noctalia-gtk"
 
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
           echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
