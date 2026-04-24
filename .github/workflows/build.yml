@@ -20,6 +20,8 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
 
       - name: Install system dependencies
         run: |
@@ -42,13 +44,13 @@ jobs:
         id: build
         run: |
           set -o pipefail
-          cargo build --release 2>&1 | tee build.log
+          cargo build --release --target x86_64-unknown-linux-musl 2>&1 | tee build.log
         shell: bash
 
       - name: Verify binary
         run: |
-          ls -la target/release/
-          SIZE=$(stat -c%s target/release/noctalia-gtk)
+          ls -la target/x86_64-unknown-linux-musl/release/
+          SIZE=$(stat -c%s target/x86_64-unknown-linux-musl/release/noctalia-gtk)
           echo "Binary size: $SIZE bytes"
           if [ "$SIZE" -lt 10000 ]; then
             echo "ERROR: Binary too small ($SIZE bytes), likely a cache or build issue"
@@ -60,7 +62,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: noctolia-gtk-build
-          path: target/release/noctalia-gtk
+          path: target/x86_64-unknown-linux-musl/release/noctalia-gtk
           if-no-files-found: error
           retention-days: 30
 
@@ -147,7 +149,7 @@ jobs:
           git config user.name "github-actions"
 
           NEW_TAG="${{ steps.tag.outputs.new_tag }}"
-          BINARY="target/release/noctalia-gtk"
+          BINARY="target/x86_64-unknown-linux-musl/release/noctalia-gtk"
 
           if [ ! -s "$BINARY" ]; then
             echo "ERROR: Binary missing or empty at $BINARY"
